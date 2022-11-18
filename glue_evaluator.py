@@ -24,7 +24,7 @@ from torch.optim import Adam
 from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler
 from datasets import load_dataset
 from transformers.optimization import AdamW
-from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoConfig
+from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoConfig, DebertaForSequenceClassification
 from datasets.arrow_dataset import Dataset
 
 from utils import setup_logging
@@ -109,6 +109,17 @@ BIAS_LAYER_NAME_TO_LATEX = {
     'attention.self.query.bias': '$\mathbf{b}_{q}^{\ell}$',
     'attention.self.key.bias': '$\mathbf{b}_{k}^{\ell}$',
     'attention.self.value.bias': '$\mathbf{b}_{v}^{\ell}$',
+    'attention.output.dense.bias': '$\mathbf{b}_{m_1}^{\ell}$',
+    'attention.output.LayerNorm.bias': '$\mathbf{b}_{LN_1}^{\ell}$',
+    'intermediate.dense.bias': '$\mathbf{b}_{m_2}^{\ell}$',
+    'output.dense.bias': '$\mathbf{b}_{m_3}^{\ell}$',
+    'output.LayerNorm.bias': '$\mathbf{b}_{LN_2}^{\ell}$',
+}
+
+DEBERTA_BIAS_LAYER_NAME_TO_LATEX = {
+    'attention.self.q_bias': '$\mathbf{b}_{q}^{\ell}$',
+    'attention.self.v_bias': '$\mathbf{b}_{v}^{\ell}$',
+    'attention.self.pos_q_proj.bias': '$\mathbf{b}_{pos_{query}}^{\ell}$',
     'attention.output.dense.bias': '$\mathbf{b}_{m_1}^{\ell}$',
     'attention.output.LayerNorm.bias': '$\mathbf{b}_{LN_1}^{\ell}$',
     'intermediate.dense.bias': '$\mathbf{b}_{m_2}^{\ell}$',
@@ -456,7 +467,10 @@ class GLUEvaluator:
         if output_path:
             LOGGER.info(f'Saving the BitFit bias terms changes to: {output_path}')
 
-        if 'roberta' in self.model_name:
+        if 'deberta' in self.model_name:
+            base_model = DebertaForSequenceClassification.from_pretrained(self.model_name, return_dict=True).deberta
+            fine_tuned_model = self.model.cpu().deberta
+        elif 'roberta' in self.model_name:
             base_model = AutoModelForSequenceClassification.from_pretrained(self.model_name, return_dict=True).roberta
             fine_tuned_model = self.model.cpu().roberta
         else:
@@ -504,7 +518,10 @@ class GLUEvaluator:
         xticklabels = [f'layer {i + 1}' for i in range(num_layers)]
         xticklabels.append('Avg.')
 
-        keys = [BIAS_LAYER_NAME_TO_LATEX[key] for key in keys]
+        if 'deberta' in self.model_name:
+            keys = [DEBERTA_BIAS_LAYER_NAME_TO_LATEX[key] for key in keys]
+        else:
+            keys = [BIAS_LAYER_NAME_TO_LATEX[key] for key in keys]
         heatmap(values_map, cmap="Blues", ax=ax, yticklabels=keys, xticklabels=xticklabels)
 
         plt.xticks(rotation=45)
@@ -537,7 +554,9 @@ class GLUEvaluator:
         if not self.encoder_trainable:
             raise Exception('In order to train with a random mask the encoder must be trainable.')
 
-        if 'roberta' in self.model_name:
+        if 'deberta' in self.model_name:
+            model = self.model.deberta
+        elif 'roberta' in self.model_name:
             model = self.model.roberta
         else:
             model = self.model.bert
@@ -577,7 +596,9 @@ class GLUEvaluator:
         if not self.encoder_trainable:
             raise Exception('In order to train with a random mask the encoder must be trainable.')
 
-        if 'roberta' in self.model_name:
+        if 'deberta' in self.model_name:
+            model = self.model.deberta
+        elif 'roberta' in self.model_name:
             model = self.model.roberta
         else:
             model = self.model.bert
@@ -654,7 +675,7 @@ class GLUEvaluator:
             if self.device is not None:
                 batch = tuple(obj.cuda(self.device) for obj in batch)
 
-            if 'roberta' in self.model_name:
+            if 'roberta' in self.model_name or 'deberta' in self.model_name:
                 input_ids, attention_mask, labels = batch
                 token_type_ids = None
             else:
@@ -675,7 +696,10 @@ class GLUEvaluator:
 
             # masking the relevant gradients (if needed)
             if self.masks:
-                if 'roberta' in self.model_name:
+                if 'deberta' in self.model_name:
+                    for name, param in self.model.deberta.named_parameters():
+                        param.grad[~self.masks[name]] = 0
+                elif 'roberta' in self.model_name:
                     for name, param in self.model.roberta.named_parameters():
                         param.grad[~self.masks[name]] = 0
                 else:
@@ -717,7 +741,7 @@ class GLUEvaluator:
             if self.device is not None:
                 batch = tuple(obj.cuda(self.device) for obj in batch)
 
-            if 'roberta' in self.model_name:
+            if 'roberta' in self.model_name or 'deberta' in self.model_name:
                 input_ids, attention_mask, labels = batch
                 token_type_ids = None
             else:
@@ -779,7 +803,7 @@ class GLUEvaluator:
         else:
             keys = ['input_ids', 'attention_mask', 'token_type_ids', 'label']
 
-        if 'roberta' in model_name:
+        if 'roberta' in model_name or 'deberta' in model_name:
             keys.remove('token_type_ids')
 
         data = {key: list() for key in keys}

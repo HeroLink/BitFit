@@ -2,6 +2,7 @@
 performed in BitFit paper (https://arxiv.org/abs/1804.07461), such as: 'full_ft', 'bitfit', 'frozen', 'rand_uniform'
 and 'rand_row_col'.
 
+python ./run_glue.py
 For questions please reach: benzakenelad@gmail.com
 
 Author Elad Ben-Zaken
@@ -26,14 +27,13 @@ def _parse_args():
     parser = argparse.ArgumentParser(description='BitFit GLUE evaluation',
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-    parser.add_argument('--output-path', '-o', required=True, type=str,
+    parser.add_argument('--output-path', '-o', type=str, default='output',
                         help='output directory path for evaluation products.')
-    parser.add_argument('--task-name', '-t', required=True, type=str, help='GLUE task name for evaluation.',
+    parser.add_argument('--task-name', '-t', type=str, default='sst2', help='GLUE task name for evaluation.',
                         choices={'cola', 'mnli', 'mrpc', 'qnli', 'qqp', 'rte', 'sst2', 'stsb', 'wnli'})
-    parser.add_argument('--model-name', '-m', type=str, default='bert-base-cased', help='model-name to evaluate with.',
-                        choices={'bert-base-cased', 'bert-large-cased', 'roberta-base'})
+    parser.add_argument('--model-name', '-m', type=str, default='microsoft/deberta-base', help='model-name to evaluate with.', choices={'bert-base-cased', 'bert-large-cased', 'roberta-base', 'microsoft/deberta-base', 'distilbert-base-uncased'})
 
-    parser.add_argument('--fine-tune-type', '-f', required=True, type=str,
+    parser.add_argument('--fine-tune-type', '-f', type=str, default='bitfit',
                         help='Which fine tuning process to perform, types are the types that were performed in BitFit paper.',
                         choices={'full_ft', 'bitfit', 'frozen', 'rand_uniform', 'rand_row_col'})
     parser.add_argument('--bias-terms', metavar='N', type=str, nargs='+', default=['all'],
@@ -42,14 +42,15 @@ def _parse_args():
                         help='bias terms to BitFit, should be given in case --fine-tune-type is bitfit '
                              '(choose \'all\' for BitFit all bias terms)')
 
-    parser.add_argument('--gpu-device', '-d', type=int, default=None,
+    parser.add_argument('--gpu-device', '-d', type=int, default=0,
                         help='GPU id for BitFit, if not mentioned will train on CPU.')
     parser.add_argument('--seed', '-s', type=int, default=0, help='seed value to set.')
+    # full fine tune lr=1e-5
     parser.add_argument('--learning-rate', '-l', type=float, default=1e-3, help='learning rate for training.')
-    parser.add_argument('--epochs', '-e', type=int, default=16, help='number of training epochs.')
+    parser.add_argument('--epochs', '-e', type=int, default=1, help='number of training epochs.')
     parser.add_argument('--batch-size', '-b', type=int, default=8, help='training and evaluation batch size.')
     parser.add_argument('--optimizer', type=str, default='adamw', choices={'adam', 'adamw'})
-    parser.add_argument('--save-evaluator', action='store_true', default=False,
+    parser.add_argument('--save-evaluator', action='store_true', default=True,
                         help='if given, will save the evaluator for later inference/examination.')
     parser.add_argument('--predict-test', action='store_true', default=False,
                         help='if given, will infer on test set using the fine-tuned model (predictions file will be in '
