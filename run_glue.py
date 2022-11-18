@@ -47,8 +47,8 @@ def _parse_args():
     parser.add_argument('--seed', '-s', type=int, default=0, help='seed value to set.')
     # full fine tune lr=1e-5
     parser.add_argument('--learning-rate', '-l', type=float, default=1e-3, help='learning rate for training.')
-    parser.add_argument('--epochs', '-e', type=int, default=1, help='number of training epochs.')
-    parser.add_argument('--batch-size', '-b', type=int, default=8, help='training and evaluation batch size.')
+    parser.add_argument('--epochs', '-e', type=int, default=16, help='number of training epochs.')
+    parser.add_argument('--batch-size', '-b', type=int, default=16, help='training and evaluation batch size.')
     parser.add_argument('--optimizer', type=str, default='adamw', choices={'adam', 'adamw'})
     parser.add_argument('--save-evaluator', action='store_true', default=True,
                         help='if given, will save the evaluator for later inference/examination.')
